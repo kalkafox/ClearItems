@@ -203,14 +203,12 @@ public class ClearItems {
             EntityItem item = (EntityItem) event.getEntity();
             for (EntityPlayerMP player : droppedItems.keySet()) {
                 if (droppedItems.get(player).contains(item)) {
-                    LOGGER.info("Found item in cache");
                     return;
                 }
             }
             World world = item.getEntityWorld();
             EntityPlayerMP player = (EntityPlayerMP) world.getClosestPlayerToEntity(item, 16);
             if (player != null) {
-                LOGGER.info("Selecting " + player + " as the owner of " + item);
                 if (!droppedItems.containsKey(player)) {
                     droppedItems.put(player, new Vector<>());
                 }
