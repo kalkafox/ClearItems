@@ -1,0 +1,18 @@
+[
+  {
+    "modid": "clearitems",
+    "name": "ClearItems",
+    "description": "A mod that actually clears dropped world items, and not a player's dropped items.",
+    "version": "${version}",
+    "mcversion": "${mcversion}",
+    "url": "",
+    "updateUrl": "",
+    "authorList": [
+      "Kalka"
+    ],
+    "credits": "",
+    "logoFile": "",
+    "screenshots": [],
+    "dependencies": []
+  }
+]
