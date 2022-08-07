@@ -5,10 +5,14 @@ import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
+import net.minecraft.world.chunk.Chunk;
+import net.minecraft.world.gen.ChunkProviderServer;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.entity.EntityEvent;
 import net.minecraftforge.event.entity.item.ItemTossEvent;
@@ -18,7 +22,9 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.gameevent.PlayerEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 
+import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 @Mod(
@@ -104,7 +110,6 @@ public class ClearItems {
         event.registerServerCommand(clearItemsCommand);
     }
 
-
     @SubscribeEvent
     public void onWorldTick(TickEvent.WorldTickEvent event) {
         long currentTime = System.currentTimeMillis();
@@ -147,11 +152,45 @@ public class ClearItems {
                     }
                 }
 
+                for (EntityPlayerMP player : droppedItems.keySet()) {
+                    if (droppedItems.containsKey(player)) {
+                        Vector<EntityItem> items = droppedItems.get(player);
+                        // teleport the items to the player's location
+                        AtomicInteger count = new AtomicInteger();
+                        items.forEach(item -> {
+                            if (player.hasDisconnected()) {
+                                item.setDead();
+                                droppedItems.get(player).remove(item);
+                            } else {
+                                BlockPos itemPos = item.getPosition();
+                                WorldServer world = (WorldServer) event.world;
+                                ChunkProviderServer chunkServer = world.getChunkProvider();
+                                Chunk chunk = world.getChunk(itemPos);
+                                try {
+                                    chunkServer.chunkLoader.loadChunk(world, chunk.x, chunk.z);
+                                    item.setPickupDelay(60);
+                                    item.setPosition(player.posX, player.posY, player.posZ);
+                                    count.getAndIncrement();
+                                } catch (IOException e) {
+                                    System.out.println("Failed to load chunk for item teleport.");
+                                    e.printStackTrace();
+                                }
+                            }
+                        });
+                        if (player.hasDisconnected() && count.get() > 0) {
+                            droppedItems.remove(player);
+                        } else {
+                            String msg = String.format("The server teleported %s%s item%s %sregistered to you.", TextFormatting.GREEN, count.get(), count.get() == 1 ? "" : "s", TextFormatting.RESET);
+                            player.sendMessage(new TextComponentString(msg));
+                        }
+                    }
+                }
+
                 event.world.loadedEntityList.forEach(entity -> {
                     if (entity instanceof EntityItem) {
                         EntityItem item = (EntityItem) entity;
                         for (EntityPlayerMP player : droppedItems.keySet()) {
-                            if (droppedItems.get(player).contains(item)) {
+                            if (player != null && droppedItems.get(player).contains(item)) {
                                 // skip over items that are set to never despawn
                                 skipped++;
                                 return;
